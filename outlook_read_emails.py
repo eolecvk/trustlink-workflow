@@ -29,10 +29,15 @@ def get_access_token():
 
     print(flow['message'])
     result = app.acquire_token_by_device_flow(flow)
+
     if 'access_token' in result:
         return result['access_token']
     else:
-        raise Exception('Could not acquire access token.')
+        # Print full error details
+        print("Token acquisition failed. Full response:")
+        print(result)  # <-- This includes error_description, error codes, correlation_id, etc.
+        raise Exception(f"Could not acquire access token: {result.get('error_description', 'No error description')}")
+
 
 def read_emails(token, top=5):
     headers = {'Authorization': f'Bearer {token}'}
@@ -49,6 +54,9 @@ def read_emails(token, top=5):
             print(f"{i}. From: {sender} | Subject: {subject} | Received: {received}")
     else:
         print("Failed to get emails:", response.status_code, response.text)
+
+
+
 
 if __name__ == "__main__":
     token = get_access_token()
