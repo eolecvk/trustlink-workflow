@@ -1,63 +1,48 @@
 import os
 from dotenv import load_dotenv
-import msal
 import requests
+import msal
 
 load_dotenv()
 
-CLIENT_ID = os.getenv('CLIENT_ID')
-TENANT_ID = os.getenv('TENANT_ID')
+CLIENT_ID = os.getenv("CLIENT_ID")
+TENANT_ID = os.getenv("TENANT_ID")
+CLIENT_SECRET = os.getenv("CLIENT_SECRET")
+USER_ID = os.getenv("USER_ID")
 
-if not CLIENT_ID or not TENANT_ID:
-    raise Exception("CLIENT_ID and TENANT_ID must be set in environment variables.")
-
-AUTHORITY = f'https://login.microsoftonline.com/{TENANT_ID}'
-SCOPES = ['Mail.Read']
+AUTHORITY = f"https://login.microsoftonline.com/{TENANT_ID}"
+SCOPE = ["https://graph.microsoft.com/.default"]  # Required for client credentials flow
 
 def get_access_token():
-    app = msal.PublicClientApplication(CLIENT_ID, authority=AUTHORITY)
+    app = msal.ConfidentialClientApplication(
+        client_id=CLIENT_ID,
+        client_credential=CLIENT_SECRET,
+        authority=AUTHORITY
+    )
 
-    accounts = app.get_accounts()
-    if accounts:
-        result = app.acquire_token_silent(SCOPES, account=accounts[0])
-        if result and 'access_token' in result:
-            return result['access_token']
+    result = app.acquire_token_for_client(scopes=SCOPE)
 
-    flow = app.initiate_device_flow(scopes=SCOPES)
-    if 'user_code' not in flow:
-        raise Exception('Failed to create device flow. Check your app registration.')
-
-    print(flow['message'])
-    result = app.acquire_token_by_device_flow(flow)
-
-    if 'access_token' in result:
-        return result['access_token']
+    if "access_token" in result:
+        return result["access_token"]
     else:
-        # Print full error details
-        print("Token acquisition failed. Full response:")
-        print(result)  # <-- This includes error_description, error codes, correlation_id, etc.
-        raise Exception(f"Could not acquire access token: {result.get('error_description', 'No error description')}")
+        print("Token acquisition failed:", result)
+        raise Exception("Could not acquire token")
 
-
-def read_emails(token, top=5):
-    headers = {'Authorization': f'Bearer {token}'}
-    endpoint = f'https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages?$top={top}&$select=subject,from,receivedDateTime'
+def read_mailboxes(access_token):
+    headers = {"Authorization": f"Bearer {access_token}"}
+    # Read messages from a shared mailbox (you need mailbox ID or user ID)
+    endpoint = f"https://graph.microsoft.com/v1.0/users/{USER_ID}/mailFolders/inbox/messages?$top=5"
 
     response = requests.get(endpoint, headers=headers)
     if response.status_code == 200:
-        emails = response.json().get('value', [])
-        print(f"Last {top} emails:")
-        for i, mail in enumerate(emails, 1):
-            sender = mail.get('from', {}).get('emailAddress', {}).get('name', 'Unknown sender')
-            subject = mail.get('subject', 'No subject')
-            received = mail.get('receivedDateTime', 'Unknown date')
-            print(f"{i}. From: {sender} | Subject: {subject} | Received: {received}")
+        emails = response.json().get("value", [])
+        for i, email in enumerate(emails, 1):
+            subject = email.get("subject", "No subject")
+            sender = email.get("from", {}).get("emailAddress", {}).get("name", "Unknown")
+            print(f"{i}. From: {sender} | Subject: {subject}")
     else:
-        print("Failed to get emails:", response.status_code, response.text)
-
-
-
+        print(f"Error {response.status_code}: {response.text}")
 
 if __name__ == "__main__":
     token = get_access_token()
-    read_emails(token)
+    read_mailboxes(token)
