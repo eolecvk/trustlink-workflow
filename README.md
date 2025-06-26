@@ -30,7 +30,8 @@ Run locally
 make start
 ```
 
-You can then access the app via http://localhost:5173/. You will be prompted to create the first user.
+Access frontend & create first user : http://localhost:5173/.
+
 
 If you need debug the backend, you can access the following services:  
 * Supabase dashboard: http://localhost:54323/
