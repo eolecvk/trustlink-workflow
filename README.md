@@ -20,8 +20,8 @@ python outlook_read_emails.py
 ## Supabase deploy
 
 ```
-sudo chmod +x simple-setup.sh
-./simple-setup.sh
+sudo chmod +x scripts/setup.sh
+./scripts/setup.sh
 ```
 
 optionally, check:
