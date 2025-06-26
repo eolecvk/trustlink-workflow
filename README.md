@@ -3,10 +3,24 @@
 
 ## Setup
 
+Install python3.12
 ```bash
+sudo add-apt-repository ppa:deadsnakes/ppa -y
+sudo apt update
+sudo apt install python3.12 python3.12-venv -y
+```
+
+activate virtual environment
+```bash
+rm -rf venv
 python3.12 -m venv venv
 source venv/bin/activate
 python -m ensurepip --upgrade
+```
+
+Check version
+```bash
+python --version  # should show Python 3.12.x
 ```
 
 ## Run
