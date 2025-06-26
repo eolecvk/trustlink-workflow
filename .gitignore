@@ -1,4 +1,14 @@
+# Environment files
 .env
-/venv
-/data
-/supabase-project
+
+# Python virtual env
+venv/
+
+# Raw data
+data/
+
+# Supabase clone repo
+supabase/
+
+# Supabase persistent volumes (database data etc.)
+supabase-stack/volumes/
