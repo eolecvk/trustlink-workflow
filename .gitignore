@@ -7,9 +7,5 @@ venv/
 # Raw data
 data/
 
-# Supabase clone repo
-supabase/
-supabase-project/
-
-# Supabase persistent volumes (database data etc.)
-supabase-stack/volumes/
+# twenty
+msal_cache.bin
