@@ -27,10 +27,10 @@ python --version  # should show Python 3.12.x
 
 ```bash
 source venv/bin/activate
-python outlook_read_emails.py
+python crm-review-dashboard/scripts/main_workflow.py
 ```
 
-## Twenty CRM
+## Twenty CRM (self-hosted)
 
 
 ### Twenty CRM self-hosted deployment

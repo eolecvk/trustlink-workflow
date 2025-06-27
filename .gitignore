@@ -7,5 +7,7 @@ venv/
 # Raw data
 data/
 
+__pycache__/
+
 # twenty
 msal_cache.bin
