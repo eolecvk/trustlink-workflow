@@ -69,6 +69,20 @@ Settings > Commmunity Nodes > "n8n-nodes-twenty"
 (look into manual install later? https://docs.n8n.io/integrations/community-nodes/installation/manual-install/)
 
 
+## Odoo
+
+```bash
+docker run -p 8069:8069 --name odoo \
+  -t odoo:16 \
+  --db_user=odoo --db_password=odoo --db_host=host.docker.internal
+```
+
+Next setup Outlook - Odoo
+* Option 1: Odoo native connector
+* Option 2: N8N Outlook to Odoo
+
+
+
 ## Twenty CRM (self-hosted) -- To be continued
 
 
