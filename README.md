@@ -30,6 +30,34 @@ source venv/bin/activate
 python outlook_read_emails.py
 ```
 
+## Twenty CRM
+
+
+### Twenty CRM self-hosted deployment
+
+
+```bash
+bash <(curl -sL https://raw.githubusercontent.com/twentyhq/twenty/main/packages/twenty-docker/scripts/install.sh)
+```
+
+Finalize deployment following steps at:
+https://twenty.com/developers/section/self-hosting/docker-compose
+
+### Twenty CRM API setup
+
+* Generate API Key
+
+* Data model (likely)
+
+  + `GET /api/contacts` (to search for existing contacts)
+  + `POST /api/contacts` (to create new contacts)
+  + `PUT /api/contacts/{id}` (to update existing contacts)
+
+
+------
+
+# Deprecated
+
 ## Atomic CRM
 
 Install
