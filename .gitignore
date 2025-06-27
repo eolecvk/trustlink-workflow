@@ -9,5 +9,10 @@ data/
 
 __pycache__/
 
+#n8n
+.n8n/
+!.n8n/custom/
+n8n-nodes-twenty/
+
 # twenty
 msal_cache.bin
