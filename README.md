@@ -73,8 +73,10 @@ Settings > Commmunity Nodes > "n8n-nodes-twenty"
 
 ```bash
 docker run -p 8069:8069 --name odoo \
-  -t odoo:16 \
-  --db_user=odoo --db_password=odoo --db_host=host.docker.internal
+  -e HOST=host.docker.internal \
+  -e USER=odoo \
+  -e PASSWORD=odoo \
+  odoo:16
 ```
 
 Next setup Outlook - Odoo
