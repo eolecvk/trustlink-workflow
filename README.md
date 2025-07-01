@@ -1,6 +1,6 @@
 # CRM automation
 
-Self-hosted AI-powered CRM with integration to mailbox
+Self-hosted email-to-CRM workflow
 
 ## Setup
 
@@ -51,10 +51,11 @@ http://localhost:5678
 
 Prod
 ```bash
+docker volume create n8n-data
 docker run -d \
   --name n8n \
   -p 5678:5678 \
-  -v "$(pwd)/.n8n:/home/node/.n8n" \
+  -v n8n_data:/home/node/.n8n \
   -e N8N_CUSTOM_EXTENSIONS='/home/node/.n8n/custom' \
   -e N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=true \
   -e N8N_RUNNERS_ENABLED=true \
@@ -62,21 +63,16 @@ docker run -d \
   docker.n8n.io/n8nio/n8n
 ```
 
-Install `n8n-nodes-twenty` through:
-```
-Settings > Commmunity Nodes > "n8n-nodes-twenty"
-```
-(look into manual install later? https://docs.n8n.io/integrations/community-nodes/installation/manual-install/)
-
-
 ## Odoo
 
-```bash
-docker run -p 8069:8069 --name odoo \
-  -e HOST=host.docker.internal \
-  -e USER=odoo \
-  -e PASSWORD=odoo \
-  odoo:16
+```
+cd odoo
+docker compose up -d
+```
+
+to reset
+```
+docker compose down -v
 ```
 
 Next setup Outlook - Odoo
@@ -86,6 +82,13 @@ Next setup Outlook - Odoo
 
 
 ## Twenty CRM (self-hosted) -- To be continued
+
+Install `n8n-nodes-twenty` through:
+```
+Settings > Commmunity Nodes > "n8n-nodes-twenty"
+```
+(look into manual install later? https://docs.n8n.io/integrations/community-nodes/installation/manual-install/)
+
 
 
 ```bash

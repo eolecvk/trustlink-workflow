@@ -1,25 +1,33 @@
 services:
   odoo:
-    image: odoo:latest
+    image: odoo:18.0
+    container_name: odoo_prod
+    depends_on:
+      - db
     ports:
       - "8069:8069"
-    depends_on:
-      - postgres
-    environment:
-      - HOST=postgres
-      - USER=odoo
-      - PASSWORD=odoo
     volumes:
       - odoo-data:/var/lib/odoo
-  postgres:
-    image: postgres:13
+      - ./addons:/mnt/extra-addons
     environment:
-      - POSTGRES_USER=odoo
-      - POSTGRES_PASSWORD=odoo
+      - HOST=db
+      - USER=odoo
+      - PASSWORD=your_strong_password
+      - ODOO_MASTER_PASSWORD=your_super_strong_admin_password # Change this!
+    restart: always
+    init: true
+
+  db:
+    image: postgres:15
+    container_name: odoo_db
+    environment:
       - POSTGRES_DB=postgres
-      - PGDATA=/var/lib/postgresql/data/pgdata
+      - POSTGRES_PASSWORD=your_strong_password # Must match Odoo's PASSWORD
+      - POSTGRES_USER=odoo
     volumes:
-      - postgres-data:/var/lib/postgresql/data/pgdata
+      - db-data:/var/lib/postgresql/data
+    restart: always
+
 volumes:
   odoo-data:
-  postgres-data:
+  db-data:
