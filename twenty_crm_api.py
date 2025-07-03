@@ -82,7 +82,8 @@ class TwentyCRMAPI:
 
     def get_person_by_email(self, email: str):
         """
-        Searches for a person in the CRM by their email address using the 'emails[containsAny]' filter.
+        Searches for a person in the CRM by their primary email address.
+        Secondary emails are ignored in the API filter due to previous issues.
 
         Args:
             email (str): The email address to search for.
@@ -97,13 +98,12 @@ class TwentyCRMAPI:
         """
         try:
             endpoint = "people"
-            # Correct filter format for 'containsAny' operator: needs an array-like string for the value.
-            # Even for a single email, it should be formatted as '[ "value1" ]'.
-            filter_str = f"emails[containsAny]:[\"{email}\"]"
+            # Filter solely based on primaryEmail using the 'eq' comparator
+            filter_str = f"emails.primaryEmail[eq]:{email}"
             
             params = {"filter": filter_str}
-            self.logger.info(f"Searching for person by email '{email}' using API filter: '{filter_str}'")
-            
+            self.logger.info(f"Searching for person by primary email '{email}' using API filter: '{filter_str}'")
+
             response = self._make_request("GET", endpoint, params=params)
             data = response.json()
 
@@ -117,32 +117,11 @@ class TwentyCRMAPI:
                 return {"error": "Unexpected people data structure"}
 
             if not people:
-                self.logger.info(f"No person found via API filter for email {email}.")
+                self.logger.info(f"No person found via API filter for primary email {email}.")
                 return {"people": []}
             else:
-                # Client-side verification is still a good idea, as 'containsAny' might be broader
-                # than an exact match, or case sensitivity might differ.
-                found_people = []
-                for person in people:
-                    emails_data = person.get("emails", {})
-                    primary = emails_data.get("primaryEmail", "").lower()
-                    additional = emails_data.get("additionalEmails", []) 
-
-                    if primary == email.lower():
-                        found_people.append(person)
-                        continue 
-                    
-                    for add_email_obj in additional:
-                        if isinstance(add_email_obj, dict) and add_email_obj.get('email', '').lower() == email.lower():
-                            found_people.append(person)
-                            break 
-
-                if found_people:
-                    self.logger.info(f"Found {len(found_people)} person(s) by email {email}.")
-                    return {"people": found_people}
-                else:
-                    self.logger.info(f"API returned results for email filter, but no exact match for {email} found on client-side verification.")
-                    return {"people": []}
+                self.logger.info(f"Found {len(people)} person(s) by primary email '{email}' via API filter.")
+                return {"people": people}
 
         except requests.exceptions.HTTPError as e:
             self.logger.error(f"HTTP error searching person by email {email}: {e}")
