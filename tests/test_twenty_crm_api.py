@@ -8,7 +8,7 @@ import logging
 from unittest.mock import patch, MagicMock
 from dotenv import load_dotenv
 import requests
-from twenty_crm_api import TwentyCRMAPI
+from twenty_crm_api import TwentyCRMAPI # Assuming twenty_crm_api.py is in the project root
 
 # Configure logging for the test file itself. This is separate from the TwentyCRMAPI's internal logger.
 # Pytest's caplog fixture relies on standard logging.
@@ -126,7 +126,6 @@ class TestPeopleEndpointUnit:
             response=mock_requests_request
         )
 
-        # --- FIX 2: No change needed here, the fix is in twenty_crm_api.py ---
         with pytest.raises(requests.exceptions.HTTPError) as excinfo:
             crm_api.get_person_by_email("error@example.com")
 
@@ -188,7 +187,6 @@ class TestApiEndpointIntegration:
                 # This is a key check for the "returns JSON and not HTML" requirement.
                 html_warning_found = False
                 for record in caplog.records:
-                    # --- Update assertion here too for integration test ---
                     if "Unexpected content type 'text/html'" in record.message:
                         html_warning_found = True
                         break
