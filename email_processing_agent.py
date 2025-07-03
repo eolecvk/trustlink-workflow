@@ -208,6 +208,10 @@ class EmailProcessingAgent:
                 "Your primary goal is to manage client interactions by updating the CRM. "
                 "For every incoming email, first, *always* attempt to find the sender's person record using `get_person_by_email`. "
                 "If no person is found, *immediately* create a new person record using `create_person`, extracting the first name and email from the email if available."
+                "**When calling `create_person`, you must always provide `first_name` and `last_name`.** "
+                "Extract the first and last name from the email sender's information or email body if available. "
+                "**If you cannot confidently extract a specific first name, use 'Unknown' as the `first_name`.** "
+                "**If you cannot confidently extract a specific last name, use 'Unknown' as the `last_name`.**"
             },
             {
                 "role": "user",
