@@ -16,7 +16,7 @@ load_dotenv(dotenv_path=DOTENV_PATH)
 
 # Retrieve Twenty CRM instance URL from environment variables
 # Ensure TWENTY_CRM_BASE_URL is set in your .env file
-TWENTY_CRM_BASE_URL = os.getenv("TWENTY_CRM_BASE_URL")
+TWENTY_CRM_BASE_URL = os.getenv("TWENTY_CRM_API_BASE_URL")
 
 # Retrieve the API Key from environment variables
 # Ensure TWENTY_CRM_API_KEY is set in your .env file
@@ -24,7 +24,7 @@ TWENTY_CRM_API_KEY = os.getenv("TWENTY_CRM_API_KEY_PYTHON")
 
 # Check if required environment variables are loaded successfully
 if not TWENTY_CRM_BASE_URL:
-    print(f"Error: TWENTY_CRM_BASE_URL not found in {DOTENV_PATH}")
+    print(f"Error: TWENTY_CRM_API_BASE_URL not found in {DOTENV_PATH}")
     print("Please ensure your .env file exists at the specified path and contains TWENTY_CRM_BASE_URL=https://your_twenty_crm_instance.com")
     exit(1)
 
@@ -34,14 +34,14 @@ if not TWENTY_CRM_API_KEY:
     exit(1)
 
 # The name of your custom object in Twenty CRM (plural form for API path)
-CUSTOM_OBJECT_NAME = "emails" 
+CUSTOM_OBJECT_NAME = "mails" 
 
 # --- API Endpoint ---
-# This will now be /rest/emails
+# This will now be /rest/mails
 API_ENDPOINT = f"{TWENTY_CRM_BASE_URL}/rest/{CUSTOM_OBJECT_NAME}"
 
 # --- Data for the New Email Entity ---
-# Adjust these fields and their values to match your custom 'Email' object's schema
+# Adjust these fields and their values to match your custom 'Mail' object's schema
 # All fields are now converted to camelCase based on previous error patterns.
 new_email_data = {
     "subject": "Inquiry about new product launch", # Changed from "Subject" to "subject"
@@ -92,3 +92,5 @@ try:
 
 except requests.exceptions.RequestException as e:
     print(f"\nAn error occurred during the API request: {e}")
+
+
