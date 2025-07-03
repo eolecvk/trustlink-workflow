@@ -1,18 +1,5 @@
-# Environment files
 .env
-
-# Python virtual env
 venv/
-
-# Raw data
-data/
-
 __pycache__/
-
-#n8n
-.n8n/
-!.n8n/custom/
-n8n-nodes-twenty/
-
-# twenty
+.pytest_cache/
 msal_cache.bin
