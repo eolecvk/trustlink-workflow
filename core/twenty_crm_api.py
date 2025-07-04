@@ -4,13 +4,8 @@ import requests
 import logging
 from dotenv import load_dotenv
 
-# Configure logging for the TwentyCRMAPI class.
-# This logger is intended for use within the class methods.
-# Basic configuration (like setting file handlers, formatters) should ideally
-# be done by the main application that imports this module,
-# but a default level is set here.
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO) # Default logging level for the library
+logger.setLevel(logging.INFO)
 
 class TwentyCRMAPI:
     """
@@ -35,31 +30,11 @@ class TwentyCRMAPI:
 
         self.base_url = base_url
         self.api_key = api_key
-        self.logger = logger # Use the module-level logger instance
+        self.logger = logger
 
     def _make_request(self, method: str, endpoint: str, params: dict = None,
                       data: dict = None, json_data: dict = None) -> requests.Response:
-        """
-        Internal helper to make HTTP requests to the CRM API.
-
-        Handles common headers, raises `requests.exceptions.HTTPError` for bad
-        responses (4xx or 5xx), and logs network/connection errors.
-
-        Args:
-            method (str): HTTP method (e.g., "GET", "POST", "PUT", "DELETE").
-            endpoint (str): The API endpoint (e.g., "/people", "/opportunities").
-            params (dict, optional): Dictionary of URL query parameters. Defaults to None.
-            data (dict, optional): Dictionary of form-encoded data. Defaults to None.
-            json_data (dict, optional): Dictionary of JSON data to send in the request body. Defaults to None.
-
-        Returns:
-            requests.Response: The response object if the request was successful.
-
-        Raises:
-            requests.exceptions.HTTPError: For HTTP status codes indicating an error (4xx or 5xx).
-            requests.exceptions.RequestException: For other request-related errors (e.g., network issues, timeouts).
-        """
-        url = f"{self.base_url}/{endpoint}" # Ensure endpoint is correctly appended
+        url = f"{self.base_url}/{endpoint}"
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json"
@@ -69,36 +44,18 @@ class TwentyCRMAPI:
 
         try:
             response = requests.request(method, url, headers=headers, params=params, data=data, json=json_data)
-            response.raise_for_status() # Raises HTTPError for 4xx/5xx responses
+            response.raise_for_status()
             return response
         except requests.exceptions.HTTPError as e:
-            # Log specific HTTP error details before re-raising
             self.logger.error(f"HTTP error during CRM API call to {url}: {e.response.status_code} - {e.response.text}")
-            raise # Re-raise the HTTPError for the caller to handle
+            raise
         except requests.exceptions.RequestException as e:
-            # Log other request exceptions (e.g., network errors, timeouts) before re-raising
             self.logger.error(f"Network or connection error during CRM API call to {url}: {e}")
-            raise # Re-raise other RequestException types
+            raise
 
     def get_person_by_email(self, email: str):
-        """
-        Searches for a person in the CRM by their primary email address.
-        Secondary emails are ignored in the API filter due to previous issues.
-
-        Args:
-            email (str): The email address to search for.
-
-        Returns:
-            dict: A dictionary containing a list of found people. Returns {"people": []} if no person is found,
-                  or {"error": "..."} on specific parsing/unexpected data errors.
-
-        Raises:
-            requests.exceptions.HTTPError: If the CRM API returns an HTTP error status.
-            requests.exceptions.RequestException: For network or connection errors during the API call.
-        """
         try:
             endpoint = "people"
-            # Filter solely based on primaryEmail using the 'eq' comparator
             filter_str = f"emails.primaryEmail[eq]:{email}"
             
             params = {"filter": filter_str}
@@ -111,10 +68,8 @@ class TwentyCRMAPI:
                 self.logger.warning("Invalid response format from CRM: Expected dict, got %s", type(data))
                 return {"error": "Invalid response format from CRM"}
 
+            # The 'people' list is nested under 'data' in the response for GET /people
             people = data.get("data", {}).get("people", [])
-            if not isinstance(people, list):
-                self.logger.warning("Unexpected people data structure: 'people' is not a list.")
-                return {"error": "Unexpected people data structure"}
 
             if not people:
                 self.logger.info(f"No person found via API filter for primary email {email}.")
@@ -135,7 +90,7 @@ class TwentyCRMAPI:
 
     def create_person(self, first_name: str, last_name: str, email: str) -> dict | None:
         """
-        Creates a new person in the CRM.
+        Creates a new person in the CRM with the correct nested structure.
 
         Args:
             first_name (str): The first name of the person.
@@ -151,16 +106,20 @@ class TwentyCRMAPI:
         """
         endpoint = "people"
         json_data = {
-            "firstName": first_name,
-            "lastName": last_name,
-            "email": email
+            "emails": {
+                "primaryEmail": email,
+                "additionalEmails": []
+            },
+            "name": {
+                "firstName": first_name,
+                "lastName": last_name
+            }
         }
         try:
             response = self._make_request("POST", endpoint, json_data=json_data)
-            # Assuming successful creation returns the new resource's data directly
-            return response.json()
+            return response.json().get("data", {}).get("createPerson")
         except requests.exceptions.HTTPError:
-            raise # Re-raise HTTP errors directly
+            raise
         except requests.exceptions.RequestException as e:
             self.logger.warning(f"Error creating person {email}: {e}")
             return None
@@ -181,17 +140,22 @@ class TwentyCRMAPI:
         """
         self.logger.info(f"Searching for opportunities for person ID: {person_id}")
         endpoint = "opportunities"
-        params = {"personId": person_id}
+        # Correctly using the 'filter' query parameter as per OpenAPI spec
+        # The field for linking to a person in opportunities is 'pointOfContactId'
+        filter_str = f"pointOfContactId[eq]:{person_id}"
+        params = {"filter": filter_str}
         try:
             response = self._make_request("GET", endpoint, params=params)
             data = response.json()
-            if data and data.get("data"):
-                self.logger.info(f"Found {len(data['data'])} opportunities for person ID {person_id}.")
-                return data["data"]
+            # The response for GET /opportunities nests the list under data.opportunities
+            opportunities = data.get("data", {}).get("opportunities", [])
+            if opportunities:
+                self.logger.info(f"Found {len(opportunities)} opportunities for person ID {person_id}.")
+                return opportunities
             self.logger.info(f"No opportunities found for person ID {person_id}.")
             return []
         except requests.exceptions.HTTPError:
-            raise # Re-raise HTTP errors directly
+            raise
         except requests.exceptions.RequestException as e:
             self.logger.warning(f"Error retrieving opportunities for person ID {person_id}: {e}")
             return []
@@ -199,74 +163,92 @@ class TwentyCRMAPI:
             self.logger.error(f"Failed to decode JSON for opportunities for person ID {person_id}: {e}")
             return []
 
-
-    def create_opportunity(self, title: str, description: str, person_id: str) -> dict | None:
+    def create_opportunity(self, name: str, person_id: str, value: float = None, status: str = None) -> dict | None:
         """
-        Creates a new opportunity associated with a person.
+        Creates a new deal (opportunity) in the CRM, linking it to a person.
 
         Args:
-            title (str): The title of the opportunity.
-            description (str): A description of the opportunity.
-            person_id (str): The ID of the person associated with this opportunity.
+            name (str): The name of the deal.
+            person_id (str): The unique identifier of the person associated with this deal.
+            value (float, optional): The monetary value of the deal.
+            status (str, optional): The current status of the deal (e.g., 'New', 'Open', 'Won', 'Lost').
 
         Returns:
-            dict or None: The created opportunity's data as a dictionary if successful, otherwise None.
-
-        Raises:
-            requests.exceptions.HTTPError: If the API returns an HTTP error status.
-            requests.exceptions.RequestException: For network or connection errors.
+            dict or None: The created deal's data as a dictionary if successful, otherwise None.
         """
-        self.logger.info(f"Attempting to create new opportunity: '{title}' for person ID {person_id}")
+        self.logger.info(f"Attempting to create new opportunity: '{name}' for person ID {person_id}")
         endpoint = "opportunities"
-        json_data = {"title": title, "description": description, "personId": person_id}
-        try:
-            response = self._make_request("POST", endpoint, json_data=json_data)
-            return response.json()
-        except requests.exceptions.HTTPError:
-            raise # Re-raise HTTP errors directly
-        except requests.exceptions.RequestException as e:
-            self.logger.warning(f"Error creating opportunity '{title}' for person ID {person_id}: {e}")
-            return None
-
-    def add_note_to_record(self, record_type: str, record_id: str, content: str) -> dict | None:
-        """
-        Adds a note linked to a specific record (e.g., person, opportunity).
-
-        Args:
-            record_type (str): The type of record (e.g., "Person", "Opportunity").
-            record_id (str): The ID of the record.
-            content (str): The content of the note.
-
-        Returns:
-            dict or None: The created note's data as a dictionary if successful, otherwise None.
-
-        Raises:
-            requests.exceptions.HTTPError: If the API returns an HTTP error status.
-            requests.exceptions.RequestException: For network or connection errors.
-        """
-        self.logger.info(f"Adding note to {record_type} ID {record_id}")
-        endpoint = "notes"
         json_data = {
-            "content": content,
-            "recordType": record_type,
-            "recordId": record_id
+            "name": name,
+            "pointOfContactId": person_id,
         }
+        if value is not None:
+             json_data["amount"] = {"amountMicros": int(value * 1_000_000), "currencyCode": "USD"}
+        if status is not None:
+             json_data["stage"] = status
+
         try:
             response = self._make_request("POST", endpoint, json_data=json_data)
-            return response.json()
+            return response.json().get("data", {}).get("createOpportunity")
         except requests.exceptions.HTTPError:
-            raise # Re-raise HTTP errors directly
+            raise
         except requests.exceptions.RequestException as e:
-            self.logger.warning(f"Error adding note to {record_type} ID {record_id}: {e}")
+            self.logger.warning(f"Error creating opportunity '{name}' for person ID {person_id}: {e}")
             return None
 
-    def add_standalone_note(self, content: str, person_id: str = None) -> dict | None:
+    def update_person(self, person_id: str, first_name: str = None, last_name: str = None, email: str = None, phone: str = None) -> dict | None:
         """
-        Adds a standalone note, optionally linked to a person.
+        Updates an existing person record in the CRM.
 
         Args:
-            content (str): The content of the note.
-            person_id (str, optional): The ID of the person to link the note to. Defaults to None.
+            person_id (str): The unique identifier of the person to update.
+            first_name (str, optional): The updated first name of the person.
+            last_name (str, optional): The updated last name of the person.
+            email (str, optional): The updated email address of the person (must be unique).
+            phone (str, optional): The updated phone number of the person.
+
+        Returns:
+            dict or None: The updated person's data as a dictionary if successful, otherwise None.
+        """
+        endpoint = f"people/{person_id}"
+        json_data = {}
+        if first_name is not None or last_name is not None:
+            json_data["name"] = {}
+            if first_name is not None:
+                json_data["name"]["firstName"] = first_name
+            if last_name is not None:
+                json_data["name"]["lastName"] = last_name
+        if email is not None:
+            json_data["emails"] = {"primaryEmail": email}
+        if phone is not None:
+            json_data["phones"] = {"primaryPhoneNumber": phone}
+
+        if not json_data:
+            self.logger.info(f"No update data provided for person ID {person_id}.")
+            return None
+
+        try:
+            response = self._make_request("PUT", endpoint, json_data=json_data)
+            return response.json().get("data", {}).get("updatePerson")
+        except requests.exceptions.HTTPError:
+            raise
+        except requests.exceptions.RequestException as e:
+            self.logger.warning(f"Error updating person ID {person_id}: {e}")
+            return None
+
+    def create_note(self, body: str, title: str = None, person_id: str = None,
+                    company_id: str = None, opportunity_id: str = None, mail_id: str = None) -> dict | None:
+        """
+        Creates a new note record in the CRM. A note can be a standalone record or linked to a person,
+        company, opportunity, or email.
+
+        Args:
+            body (str): The main content or body of the note. This will be sent as 'blocknote' within bodyV2.
+            title (str, optional): The title of the note.
+            person_id (str, optional): The ID of the person to associate the note with (UUID format).
+            company_id (str, optional): The ID of the company to associate the note with (UUID format).
+            opportunity_id (str, optional): The ID of the opportunity to associate the note with (UUID format).
+            mail_id (str, optional): The ID of the email to associate the note with (UUID format).
 
         Returns:
             dict or None: The created note's data as a dictionary if successful, otherwise None.
@@ -275,39 +257,86 @@ class TwentyCRMAPI:
             requests.exceptions.HTTPError: If the API returns an HTTP error status.
             requests.exceptions.RequestException: For network or connection errors.
         """
-        log_msg = f"Adding standalone note: '{content[:50]}...'"
+        log_msg_parts = ["Adding note"]
+
+        # Create the BlockNote JSON structure
+        blocknote_content = [
+            {
+                "id": "1",
+                "type": "paragraph",
+                "props": {
+                    "textColor": "default",
+                    "backgroundColor": "default",
+                    "textAlignment": "left"
+                },
+                "content": [
+                    {
+                        "type": "text",
+                        "text": body,
+                        "styles": {}
+                    }
+                ]
+            }
+        ]
+
+        # Stringify the BlockNote JSON
+        blocknote_json_string = json.dumps(blocknote_content)
+
+        json_data = {
+            "bodyV2": {
+                "markdown": body,
+                "blocknote": blocknote_json_string
+            }
+        }
+
+        if title:
+            json_data["title"] = title
+            log_msg_parts.append(f"with title '{title}'")
+
+        # --- CRITICAL CHANGE HERE: Use 'noteTargets' array for linking ---
+        note_targets = []
+        linked_records_log = []
+
         if person_id:
-            log_msg += f" for person ID {person_id}"
-        self.logger.info(log_msg)
+            note_targets.append({"personId": person_id})
+            linked_records_log.append(f"person ID {person_id}")
+        if company_id:
+            note_targets.append({"companyId": company_id})
+            linked_records_log.append(f"company ID {company_id}")
+        if opportunity_id:
+            note_targets.append({"opportunityId": opportunity_id})
+            linked_records_log.append(f"opportunity ID {opportunity_id}")
+        if mail_id:
+            note_targets.append({"mailId": mail_id})
+            linked_records_log.append(f"mail ID {mail_id}")
+
+        if note_targets:
+            json_data["noteTargets"] = note_targets
+            log_msg_parts.append(f"linked to: {', '.join(linked_records_log)}")
+        else:
+            log_msg_parts.append("as standalone")
+        # --- END CRITICAL CHANGE ---
+
+        self.logger.info(" ".join(log_msg_parts))
 
         endpoint = "notes"
-        json_data = {"content": content}
-        if person_id:
-            json_data["personId"] = person_id
         try:
             response = self._make_request("POST", endpoint, json_data=json_data)
-            return response.json()
+            return response.json().get("data", {}).get("createNote")
         except requests.exceptions.HTTPError:
-            raise # Re-raise HTTP errors directly
+            raise
         except requests.exceptions.RequestException as e:
-            self.logger.warning(f"Error adding standalone note: {e}")
+            self.logger.warning(f"Error creating note: {e}")
             return None
 
 
 if __name__ == "__main__":
-    # This block is executed only when the script is run directly, not when imported.
-    # It's suitable for testing or demonstrating the API client.
-
-    # Configure basic logging for the script's execution
     logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    module_logger = logging.getLogger(__name__) # Get a logger for this specific script
+    module_logger = logging.getLogger(__name__)
 
-    # Load environment variables from .env file
-    # By default, load_dotenv looks for .env in the current directory or parent directories.
     load_dotenv()
     module_logger.info(".env file loaded.")
 
-    # Retrieve API credentials from environment variables
     TWENTY_CRM_API_BASE_URL = os.environ.get("TWENTY_CRM_API_BASE_URL")
     TWENTY_CRM_API_KEY = os.environ.get("TWENTY_CRM_API_KEY_PYTHON")
 
@@ -322,14 +351,14 @@ if __name__ == "__main__":
 
         # --- Example Usage ---
         test_email = "test.user@example.com"
-        test_first_name = "Test"
-        test_last_name = "User"
+        test_first_name = "TestFN"
+        test_last_name = "TestLN"
 
         module_logger.info(f"\n--- Attempting to get person by email: {test_email} ---")
         try:
             people_found = crm.get_person_by_email(test_email)
             if people_found and people_found.get("people"):
-                person = people_found["people"][0] # Assuming we take the first match
+                person = people_found["people"][0]
                 module_logger.info(f"Found person: {person.get('name', {}).get('firstName')} {person.get('name', {}).get('lastName')} (ID: {person['id']})")
                 person_id = person['id']
 
@@ -337,7 +366,7 @@ if __name__ == "__main__":
                 opportunities = crm.get_opportunities_by_person_id(person_id)
                 if opportunities:
                     for opp in opportunities:
-                        module_logger.info(f"  Opportunity: {opp.get('title')} (ID: {opp.get('id')})")
+                        module_logger.info(f"  Opportunity: {opp.get('name')} (ID: {opp.get('id')})")
                 else:
                     module_logger.info(f"No opportunities found for person ID {person_id}.")
 
@@ -349,6 +378,14 @@ if __name__ == "__main__":
                 else:
                     module_logger.warning("Failed to add note to person.")
 
+                module_logger.info(f"\n--- Attempting to update person ID: {person_id} ---")
+                updated_person = crm.update_person(person_id, first_name="UpdatedFN", last_name="UpdatedLN")
+                if updated_person:
+                    module_logger.info(f"Successfully updated person: {updated_person.get('name', {}).get('firstName')} {updated_person.get('name', {}).get('lastName')}")
+                else:
+                    module_logger.warning(f"Failed to update person ID {person_id}.")
+
+
             else:
                 module_logger.info(f"Person with email {test_email} not found. Attempting to create...")
                 new_person = crm.create_person(test_first_name, test_last_name, test_email)
@@ -359,8 +396,9 @@ if __name__ == "__main__":
                     module_logger.info(f"\n--- Attempting to create an opportunity for new person ID: {person_id} ---")
                     new_opportunity = crm.create_opportunity(
                         "New Test Opportunity",
-                        "This is an opportunity created for the test user.",
-                        person_id
+                        person_id,
+                        value=1000.0,
+                        status="NEW"
                     )
                     if new_opportunity:
                         module_logger.info(f"Opportunity created successfully (ID: {new_opportunity.get('id')}).")

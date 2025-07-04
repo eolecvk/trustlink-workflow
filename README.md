@@ -28,39 +28,16 @@ Check version
 python --version  # should show Python 3.12.x
 ```
 
-### `N8N` 
-
-n8n
-
-Dev
-```bash
-docker volume create n8n-data
-docker run -it \
-  --name n8n \
-  -p 5678:5678 \
-  -v n8n-data:/home/node/.n8n \
-  -e N8N_CUSTOM_EXTENSIONS='/home/node/.n8n/custom' \
-  -e N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=true \
-  -e N8N_RUNNERS_ENABLED=true \
-  -e N8N_DATA_FOLDER=/home/node/.n8n \
-  docker.n8n.io/n8nio/n8n
+Twenty
+```
+bash <(curl -sL https://raw.githubusercontent.com/twentyhq/twenty/main/packages/twenty-docker/scripts/install.sh)
 ```
 
-http://localhost:5678
 
 
-Prod
-```bash
-docker volume create n8n-data
-docker run -d \
-  --name n8n \
-  -p 5678:5678 \
-  -v n8n_data:/home/node/.n8n \
-  -e N8N_CUSTOM_EXTENSIONS='/home/node/.n8n/custom' \
-  -e N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=true \
-  -e N8N_RUNNERS_ENABLED=true \
-  -e N8N_DATA_FOLDER=/home/node/.n8n \
-  docker.n8n.io/n8nio/n8n
+---
+
+
 ```
 
 ## Odoo
