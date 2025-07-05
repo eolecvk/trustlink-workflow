@@ -2,6 +2,7 @@ import os
 import json
 import requests
 import logging
+import re
 from dotenv import load_dotenv
 
 logger = logging.getLogger(__name__)
@@ -166,61 +167,90 @@ class TwentyCRMAPI:
             return None
 
     def create_note(self, title: str, body: str, person_id: str = None, company_id: str = None, opportunity_id: str = None):
-        log_msg_parts = [f"Adding note with title '{title}'"]
-        note_data = {
-            "title": title,
-            "bodyV2": {
-                "markdown": body,
-                "blocknote": json.dumps([
-                    {
-                        "id": "1",
-                        "type": "paragraph",
-                        "props": {
-                            "textColor": "default",
-                            "backgroundColor": "default",
-                            "textAlignment": "left"
-                        },
-                        "content": [{
-                            "type": "text",
-                            "text": body,
-                            "styles": {}
-                        }]
-                    }
-                ])
+        def build_paragraph(text: str, bold: bool = False) -> dict:
+            return {
+                "id": str(abs(hash(text)))[:8],  # stable-ish hash
+                "type": "paragraph",
+                "props": {
+                    "textColor": "default",
+                    "backgroundColor": "default",
+                    "textAlignment": "left"
+                },
+                "content": [{
+                    "type": "text",
+                    "text": text.strip(),
+                    "styles": {"bold": bold} if bold else {}
+                }]
             }
-        }
+
+        def extract_sections(body: str) -> tuple[str, str]:
+            """Extract Original Email and Recommendation sections."""
+            pattern = re.compile(r"Original Email:\s*(.*?)\s*Recommendation:\s*(.*)", re.IGNORECASE | re.DOTALL)
+            match = pattern.search(body)
+            if match:
+                return match.group(1).strip(), match.group(2).strip()
+            else:
+                return "", body.strip()
 
         try:
-            self.logger.info(f"Creating note with title: '{title}'")
-            note_response = self._make_request("POST", "notes", json_data=note_data)
-            note = note_response.get("data", {}).get("createNote")
-            if not note:
-                raise ValueError(f"Failed to create note: Invalid response format. Response: {json.dumps(note_response)}")
+            self.logger.info(f"Attempting to create note with title: '{title}'")
+            original_email, recommendation = extract_sections(body)
 
-            note_id = note.get("id")
-            if not note_id:
-                raise ValueError(f"Failed to create note: No ID returned. Response: {json.dumps(note)}")
+            blocknote = []
 
-            self.logger.info(f"Note created successfully with ID: {note_id}")
-            linked_records_log = []
+            if original_email:
+                blocknote.extend([
+                    build_paragraph("Original Email:", bold=True),
+                    build_paragraph(original_email),
+                ])
+            if recommendation:
+                blocknote.extend([
+                    build_paragraph("Recommendation:", bold=True),
+                    build_paragraph(recommendation),
+                ])
+            if not blocknote:
+                # Fallback if format not respected
+                blocknote.extend([
+                    build_paragraph("Message:", bold=True),
+                    build_paragraph(body)
+                ])
 
-            if person_id:
-                self._make_request("POST", "noteTargets", json_data={"noteId": note_id, "personId": person_id})
-                linked_records_log.append(f"person ID {person_id}")
-            if company_id:
-                self._make_request("POST", "noteTargets", json_data={"noteId": note_id, "companyId": company_id})
-                linked_records_log.append(f"company ID {company_id}")
-            if opportunity_id:
-                self._make_request("POST", "noteTargets", json_data={"noteId": note_id, "opportunityId": opportunity_id})
-                linked_records_log.append(f"opportunity ID {opportunity_id}")
+            note_payload = {
+                "title": title,
+                "bodyV2": {
+                    "markdown": body,
+                    "blocknote": json.dumps(blocknote)
+                }
+            }
 
-            if linked_records_log:
-                log_msg_parts.append(f"and linked to: {', '.join(linked_records_log)}")
+            # Create the note
+            response = self._make_request("POST", "notes", json_data=note_payload)
+            note = response.get("data", {}).get("createNote")
+            if not note or "id" not in note:
+                raise ValueError(f"Failed to create note: {json.dumps(response)}")
+
+            note_id = note["id"]
+            self.logger.info(f"Note created with ID: {note_id} and title: '{title}'")
+
+            # Link to related records
+            targets = {
+                "personId": person_id,
+                "companyId": company_id,
+                "opportunityId": opportunity_id
+            }
+            linked = []
+            for key, val in targets.items():
+                if val:
+                    self._make_request("POST", "noteTargets", json_data={"noteId": note_id, key: val})
+                    linked.append(f"{key}={val}")
+
+            if linked:
+                self.logger.info(f"Note linked to: {', '.join(linked)}")
             else:
-                log_msg_parts.append("with no specific links.")
+                self.logger.info("Note not linked to any person/company/opportunity.")
 
-            self.logger.info(" ".join(log_msg_parts))
             return note
+
         except Exception as e:
-            self.logger.error(f"Error creating note or note target: {e}", exc_info=True)
+            self.logger.error(f"Error creating note or linking it: {e}", exc_info=True)
             raise

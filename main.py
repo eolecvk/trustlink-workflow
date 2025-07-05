@@ -5,8 +5,9 @@ import time
 import random
 from dotenv import load_dotenv
 from openai import OpenAI
-from openai import RateLimitError # Specific exception for rate limits
-from openai import APIStatusError # Import the base class for clarity
+from openai import RateLimitError
+from openai import APIStatusError
+from bs4 import BeautifulSoup
 
 from core.twenty_crm_api import TwentyCRMAPI
 from core.ms_graph_api import MSGraphClient
@@ -87,9 +88,13 @@ class EmailProcessingAgent:
     def process_email(self, email_data):
         email_id = email_data.get("id")
         subject = email_data.get("subject", "No Subject")
-        body = email_data.get("body", {}).get("content", "")
+        raw_body = email_data.get("body", {}).get("content", "")
         sender = email_data.get("sender", {}).get("emailAddress", {})
+        sender_name = sender.get("name", "")
         sender_email = sender.get("address", "")
+
+        soup = BeautifulSoup(raw_body, "html.parser")
+        body = soup.get_text(separator="\n").strip()
 
         messages = [
             {
@@ -98,7 +103,12 @@ class EmailProcessingAgent:
             },
             {
                 "role": "user",
-                "content": f"Email from {sender_email}: {subject}\n{body}"
+                "content": json.dumps({
+                    "sender_email": sender_email,
+                    "subject": subject,
+                    "body": body,
+                    "sender_name": sender_name
+                }, indent=2)
             }
         ]
 
