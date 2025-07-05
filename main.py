@@ -1,11 +1,12 @@
 import os
 import json
 import logging
-import time # Import time for delays
-import random # Import random for jitter
+import time
+import random
 from dotenv import load_dotenv
 from openai import OpenAI
 from openai import RateLimitError # Specific exception for rate limits
+from openai import APIStatusError # Import the base class for clarity
 
 from core.twenty_crm_api import TwentyCRMAPI
 from core.ms_graph_api import MSGraphClient
@@ -41,6 +42,8 @@ class EmailProcessingAgent:
         Calls the LLM with exponential backoff and jitter for rate limit errors.
         """
         delay = initial_delay
+        last_rate_limit_error = None # Variable to store the last caught RateLimitError
+
         for i in range(max_retries):
             try:
                 response = self.llm_client.chat.completions.create(
@@ -52,16 +55,33 @@ class EmailProcessingAgent:
                 return response
             except RateLimitError as e:
                 # This is the specific exception for 429 errors from openai-python client
-                logger.warning(f"Rate limit hit (attempt {i+1}/{max_retries}). Retrying in {delay:.2f} seconds...")
-                time.sleep(delay + random.uniform(0, 0.5)) # Add jitter
+                last_rate_limit_error = e # Store the current RateLimitError
+                # Calculate jitter proportional to the current delay
+                jitter = random.uniform(0, 0.5 * delay)
+                total_sleep_time = delay + jitter
+                logger.warning(f"Rate limit hit (attempt {i+1}/{max_retries}). Retrying in {total_sleep_time:.2f} seconds...")
+                time.sleep(total_sleep_time)
                 delay *= 2 # Exponential increase
+                # Optional: Cap the maximum delay to prevent excessively long waits
+                # if delay > 60: # e.g., cap at 60 seconds
+                #     delay = 60
             except Exception as e:
                 # Catch other general exceptions during the API call
-                logger.error(f"An unexpected error occurred during LLM call: {e}")
+                logger.exception(f"An unexpected error occurred during LLM call:") # Use logger.exception to print traceback
                 raise # Re-raise if it's not a rate limit error
 
         logger.error(f"Failed to get LLM response after {max_retries} retries due to rate limits.")
-        raise RateLimitError("Exceeded maximum retries for LLM call due to rate limits.")
+        # If we reach here, it means all retries failed.
+        # Re-raise the last RateLimitError encountered to preserve its details.
+        if last_rate_limit_error:
+            raise last_rate_limit_error
+        else:
+            # This case should ideally not be hit if the loop exits because of RateLimitError,
+            # but as a fallback, raise a general APIStatusError with dummy values
+            # or a custom exception if APIStatusError cannot be constructed without real data.
+            # For simplicity, if we hit this, it means no RateLimitError was ever stored
+            # (which implies a different failure mode or a logic error), so a general Exception is safer.
+            raise Exception("LLM call failed after retries, no specific RateLimitError captured.")
 
 
     def process_email(self, email_data):
@@ -102,7 +122,7 @@ class EmailProcessingAgent:
                         try:
                             arguments = json.loads(call.function.arguments)
                         except json.JSONDecodeError as e:
-                            logger.error(f"Invalid JSON in tool call arguments: {e}")
+                            logger.error(f"Invalid JSON in tool call arguments for function '{function_name}': {e}")
                             # Append an error message for the LLM to process
                             tool_outputs.append({
                                 "role": "function",
@@ -137,6 +157,8 @@ class EmailProcessingAgent:
 
 
         except Exception as e:
+            # This will now catch the re-raised RateLimitError (which is a subclass of APIStatusError and Exception)
+            # or any other unhandled exception from within the loop.
             logger.error(f"Error during processing email ID {email_id}: {e}")
 
     def run(self):
