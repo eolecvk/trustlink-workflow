@@ -98,7 +98,7 @@ class TwentyCRMAPI:
 
         try:
             data = self._make_request("GET", endpoint, params=params)
-            opportunities = data.get("data", {}).get("opportunities", [])
+            opportunities = data.get("data", [])
             if opportunities:
                 self.logger.info(f"Found {len(opportunities)} opportunities for person ID {person_id}.")
                 return opportunities
@@ -112,6 +112,7 @@ class TwentyCRMAPI:
         except json.JSONDecodeError as e:
             self.logger.error(f"Failed to decode JSON for opportunities for person ID {person_id}: {e}")
             return []
+
 
     def create_opportunity(self, name: str, person_id: str, value: float = None, status: str = None) -> dict | None:
         self.logger.info(f"Attempting to create new opportunity: '{name}' for person ID {person_id}")

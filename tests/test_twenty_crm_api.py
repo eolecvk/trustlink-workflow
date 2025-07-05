@@ -8,7 +8,7 @@ import logging
 from unittest.mock import patch, MagicMock
 from dotenv import load_dotenv
 import requests
-from twenty_crm_api import TwentyCRMAPI # Assuming twenty_crm_api.py is in the project root
+from core.twenty_crm_api import TwentyCRMAPI # Assuming twenty_crm_api.py is in the project root
 
 # Configure logging for the test file itself. This is separate from the TwentyCRMAPI's internal logger.
 # Pytest's caplog fixture relies on standard logging.
@@ -113,6 +113,29 @@ class TestPeopleEndpointUnit:
 
             assert person is None # Assuming TwentyCRMAPI returns None for unparseable responses
             assert "Unexpected content type 'text/html'" in caplog.text
+
+
+    def test_get_opportunities_by_person_id_found(self, crm_api, mock_requests_request):
+        mock_data = {
+            "data": [
+                {"id": "op1", "name": "Opportunity 1"},
+                {"id": "op2", "name": "Opportunity 2"},
+            ]
+        }
+        setup_mock_json_response(mock_requests_request, 200, mock_data)
+
+        opportunities = crm_api.get_opportunities_by_person_id("person123")
+
+        assert isinstance(opportunities, list)
+        assert len(opportunities) == 2
+        assert opportunities[0]["id"] == "op1"
+
+    def test_get_opportunities_by_person_id_empty(self, crm_api, mock_requests_request):
+        setup_mock_json_response(mock_requests_request, 200, {"data": []})
+
+        opportunities = crm_api.get_opportunities_by_person_id("person123")
+
+        assert opportunities == []
 
 
     def test_http_error_response_raises_exception(self, crm_api, mock_requests_request):
