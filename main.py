@@ -25,7 +25,7 @@ TWENTY_CRM_API_BASE_URL = os.environ.get("TWENTY_CRM_API_BASE_URL")
 TWENTY_CRM_API_KEY = os.environ.get("TWENTY_CRM_API_KEY_PYTHON")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 GEMINI_MODEL = os.environ.get("GEMINI_DEFAULT_MODEL")
-
+MAX_DEPTH_CALLS = 6
 
 class EmailProcessingAgent:
 
@@ -114,7 +114,7 @@ class EmailProcessingAgent:
 
         try:
             # Allow up to 5 consecutive tool calls in a loop
-            for iteration in range(5):
+            for iteration in range(MAX_DEPTH_CALLS):
                 # Use the helper function for the LLM call
                 response = self._call_llm_with_retries(
                     messages=messages,

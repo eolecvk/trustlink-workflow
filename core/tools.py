@@ -140,36 +140,109 @@ class CRMTools:
                     }
                 }
             },
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "create_note",
+                        "description": "Creates a new note record in the CRM. The note summarizes an email and optionally a CRM update. It can be linked to a person, company, or opportunity.",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {
+                                "title": {
+                                    "type": "string",
+                                    "description": "The title of the note, typically set from the email subject."
+                                },
+                                "body": {
+                                    "type": "string",
+                                    "description": "The content of the note, formatted as:\n'Original email: <email body>'\n'CRM update: <summary or None>'"
+                                },
+                                "person_id": {
+                                    "type": "string",
+                                    "description": "Optional: The ID of the person to associate the note with (UUID format)."
+                                },
+                                "company_id": {
+                                    "type": "string",
+                                    "description": "Optional: The ID of the company to associate the note with (UUID format)."
+                                },
+                                "opportunity_id": {
+                                    "type": "string",
+                                    "description": "Optional: The ID of the opportunity to associate the note with (UUID format)."
+                                }
+                            },
+                            "required": ["title", "body"]
+                        }
+                    }
+                },
+            {
+            "type": "function",
+            "function": {
+                "name": "update_opportunity",
+                "description": "Updates the stage of an existing opportunity in the CRM. If the new stage is 'invoicePaid', the close date will be automatically set.",
+                "parameters": {
+                "type": "object",
+                "properties": {
+                    "opportunity_id": {
+                    "type": "string",
+                    "description": "The unique identifier (UUID) of the opportunity to update."
+                    },
+                    "stage": {
+                    "type": "string",
+                    "description": "The new stage of the opportunity. If set to 'invoicePaid', the opportunity will also be closed (closeDate set)."
+                    }
+                },
+                "required": ["opportunity_id", "stage"]
+                }
+            }
+            },
+
             {
                 "type": "function",
                 "function": {
-                    "name": "create_note",
-                    "description": "Creates a new note record in the CRM. A note can be a standalone record or linked to a person, company, opportunity, or email.",
+                    "name": "create_task",
+                    "description": "Creates a new task in the CRM and optionally links it to a person, company, or opportunity.",
                     "parameters": {
                         "type": "object",
                         "properties": {
                             "title": {
                                 "type": "string",
-                                "description": "The title of the note."
+                                "description": "The title of the task."
                             },
                             "body": {
                                 "type": "string",
-                                "description": "The main content or body of the note."
+                                "description": "The main content or description of the task."
+                            },
+                            "status": {
+                                "type": "string",
+                                "enum": ["TODO", "IN_PROGRESS", "DONE"],
+                                "description": "The current status of the task."
+                            },
+                            "due_at": {
+                                "type": "string",
+                                "format": "date-time",
+                                "description": "Optional ISO 8601 timestamp representing when the task is due."
+                            },
+                            "assignee_id": {
+                                "type": "string",
+                                "description": "Optional UUID of the user who is assigned to this task."
                             },
                             "person_id": {
                                 "type": "string",
-                                "description": "Optional: The ID of the person to associate the note with (UUID format)."
+                                "description": "Optional UUID of the person to link this task to."
                             },
                             "company_id": {
                                 "type": "string",
-                                "description": "Optional: The ID of the company to associate the note with (UUID format)."
+                                "description": "Optional UUID of the company to link this task to."
                             },
                             "opportunity_id": {
                                 "type": "string",
-                                "description": "Optional: The ID of the opportunity to associate the note with (UUID format)."
+                                "description": "Optional UUID of the opportunity to link this task to."
+                            },
+                            "position": {
+                                "type": "integer",
+                                "description": "Optional position for the task record (defaults to 1)."
                             }
                         },
-                        "required": ["body"]
+                        "required": ["title", "body"]
                     }
                 }
             },

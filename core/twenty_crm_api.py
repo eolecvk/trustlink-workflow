@@ -3,7 +3,7 @@ import json
 import requests
 import logging
 import re
-from dotenv import load_dotenv
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -137,6 +137,42 @@ class TwentyCRMAPI:
             self.logger.warning(f"Error creating opportunity '{name}' for person ID {person_id}: {e}")
             return None
 
+
+    def update_opportunity(self, opportunity_id: str, stage: str) -> dict | None:
+        """
+        Update the stage of an existing opportunity. If stage is 'invoicePaid',
+        also set the close date to the current timestamp.
+
+        Args:
+            opportunity_id (str): UUID of the opportunity to update.
+            stage (str): New stage value.
+
+        Returns:
+            dict | None: Updated opportunity object or None on failure.
+        """
+        if not opportunity_id:
+            raise ValueError("Opportunity ID is required.")
+        if not stage:
+            raise ValueError("Stage is required.")
+
+        endpoint = f"opportunities/{opportunity_id}"
+        json_data = {"stage": stage}
+
+        if stage == "invoicePaid":
+            json_data["closeDate"] = datetime.utcnow().isoformat() + "Z"
+
+        try:
+            self.logger.info(f"Updating opportunity {opportunity_id} stage to '{stage}'")
+            data = self._make_request("PATCH", endpoint, json_data=json_data)
+            return data.get("data", {}).get("updateOpportunity")
+        except requests.exceptions.HTTPError:
+            raise
+        except requests.exceptions.RequestException as e:
+            self.logger.warning(f"Error updating opportunity {opportunity_id} stage to '{stage}': {e}")
+            return None
+
+
+
     def update_person(self, person_id: str, first_name: str = None, last_name: str = None, email: str = None, phone: str = None) -> dict | None:
         endpoint = f"people/{person_id}"
         json_data = {}
@@ -166,10 +202,25 @@ class TwentyCRMAPI:
             self.logger.warning(f"Error updating person ID {person_id}: {e}")
             return None
 
-    def create_note(self, title: str, body: str, person_id: str = None, company_id: str = None, opportunity_id: str = None):
+    def create_note(self, email_subject: str, email_body: str, crm_update: str = None,
+                    person_id: str = None, company_id: str = None, opportunity_id: str = None):
+        """
+        Creates a formatted note from an email and optional CRM update, and links it to CRM records.
+
+        Args:
+            email_subject (str): Subject of the email. Used as note title (required).
+            email_body (str): Raw body of the email (required).
+            crm_update (str): Optional summary of CRM update to include in the note body.
+            person_id (str): Optional UUID of the person to link the note to.
+            company_id (str): Optional UUID of the company to link the note to.
+            opportunity_id (str): Optional UUID of the opportunity to link the note to.
+
+        Returns:
+            dict: The created note object from the CRM.
+        """
         def build_paragraph(text: str, bold: bool = False) -> dict:
             return {
-                "id": str(abs(hash(text)))[:8],  # stable-ish hash
+                "id": str(abs(hash(text)))[:8],
                 "type": "paragraph",
                 "props": {
                     "textColor": "default",
@@ -183,40 +234,27 @@ class TwentyCRMAPI:
                 }]
             }
 
-        def extract_sections(body: str) -> tuple[str, str]:
-            """Extract Original Email and Recommendation sections."""
-            pattern = re.compile(r"Original Email:\s*(.*?)\s*Recommendation:\s*(.*)", re.IGNORECASE | re.DOTALL)
-            match = pattern.search(body)
-            if match:
-                return match.group(1).strip(), match.group(2).strip()
-            else:
-                return "", body.strip()
-
         try:
-            self.logger.info(f"Attempting to create note with title: '{title}'")
-            original_email, recommendation = extract_sections(body)
+            if not email_subject:
+                raise ValueError("Note title (email subject) is required.")
+            if not email_body:
+                raise ValueError("Note body (email content) is required.")
 
-            blocknote = []
+            self.logger.info(f"Creating note for subject: '{email_subject}'")
 
-            if original_email:
-                blocknote.extend([
-                    build_paragraph("Original Email:", bold=True),
-                    build_paragraph(original_email),
-                ])
-            if recommendation:
-                blocknote.extend([
-                    build_paragraph("Recommendation:", bold=True),
-                    build_paragraph(recommendation),
-                ])
-            if not blocknote:
-                # Fallback if format not respected
-                blocknote.extend([
-                    build_paragraph("Message:", bold=True),
-                    build_paragraph(body)
-                ])
+            crm_update = crm_update.strip() if crm_update else "None"
+
+            body = f"Original email:\n{email_body.strip()}\n\nCRM update:\n{crm_update}"
+
+            blocknote = [
+                build_paragraph("Original email:", bold=True),
+                build_paragraph(email_body),
+                build_paragraph("CRM update:", bold=True),
+                build_paragraph(crm_update)
+            ]
 
             note_payload = {
-                "title": title,
+                "title": email_subject,
                 "bodyV2": {
                     "markdown": body,
                     "blocknote": json.dumps(blocknote)
@@ -230,9 +268,9 @@ class TwentyCRMAPI:
                 raise ValueError(f"Failed to create note: {json.dumps(response)}")
 
             note_id = note["id"]
-            self.logger.info(f"Note created with ID: {note_id} and title: '{title}'")
+            self.logger.info(f"Note created with ID: {note_id} and title: '{email_subject}'")
 
-            # Link to related records
+            # Link the note to CRM entities
             targets = {
                 "personId": person_id,
                 "companyId": company_id,
@@ -253,4 +291,105 @@ class TwentyCRMAPI:
 
         except Exception as e:
             self.logger.error(f"Error creating note or linking it: {e}", exc_info=True)
+            raise
+
+    def create_task(self, title: str, body: str, status: str = "TODO", due_at: str = None,
+                    assignee_id: str = None, person_id: str = None,
+                    company_id: str = None, opportunity_id: str = None,
+                    position: int = 1):
+        def build_paragraph(text: str, bold: bool = False) -> dict:
+            return {
+                "id": str(abs(hash(text)))[:8],
+                "type": "paragraph",
+                "props": {
+                    "textColor": "default",
+                    "backgroundColor": "default",
+                    "textAlignment": "left"
+                },
+                "content": [{
+                    "type": "text",
+                    "text": text.strip(),
+                    "styles": {"bold": bold} if bold else {}
+                }]
+            }
+
+        def extract_sections(body: str) -> tuple[str, str]:
+            pattern = re.compile(r"Original Email:\s*(.*?)\s*Recommendation:\s*(.*)", re.IGNORECASE | re.DOTALL)
+            match = pattern.search(body)
+            if match:
+                return match.group(1).strip(), match.group(2).strip()
+            else:
+                return "", body.strip()
+
+        try:
+            self.logger.info(f"Creating task with title: '{title}'")
+
+            original_email, recommendation = extract_sections(body)
+            blocknote = []
+
+            if original_email:
+                blocknote.extend([
+                    build_paragraph("Original Email:", bold=True),
+                    build_paragraph(original_email),
+                ])
+            if recommendation:
+                blocknote.extend([
+                    build_paragraph("Recommendation:", bold=True),
+                    build_paragraph(recommendation),
+                ])
+            if not blocknote:
+                blocknote.extend([
+                    build_paragraph("Message:", bold=True),
+                    build_paragraph(body)
+                ])
+
+            task_payload = {
+                "title": title,
+                "status": status,
+                "position": position,
+                "bodyV2": {
+                    "markdown": body,
+                    "blocknote": json.dumps(blocknote)
+                }
+            }
+
+            if due_at:
+                task_payload["dueAt"] = due_at
+            else:
+                # Default due date: tomorrow
+                task_payload["dueAt"] = (datetime.utcnow().replace(microsecond=0).isoformat() + "Z")
+
+            if assignee_id:
+                task_payload["assigneeId"] = assignee_id
+
+            response = self._make_request("POST", "tasks", json_data=task_payload)
+            task = response.get("data", {}).get("createTask")
+
+            if not task or "id" not in task:
+                raise ValueError(f"Failed to create task: {json.dumps(response)}")
+
+            task_id = task["id"]
+            self.logger.info(f"Task created with ID: {task_id}")
+
+            # Link to related records (via taskTargets)
+            targets = {
+                "personId": person_id,
+                "companyId": company_id,
+                "opportunityId": opportunity_id
+            }
+            linked = []
+            for key, val in targets.items():
+                if val:
+                    self._make_request("POST", "taskTargets", json_data={"taskId": task_id, key: val})
+                    linked.append(f"{key}={val}")
+
+            if linked:
+                self.logger.info(f"Task linked to: {', '.join(linked)}")
+            else:
+                self.logger.info("Task not linked to any person/company/opportunity.")
+
+            return task
+
+        except Exception as e:
+            self.logger.error(f"Error creating task or linking it: {e}", exc_info=True)
             raise
