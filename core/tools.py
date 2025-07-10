@@ -194,57 +194,51 @@ class CRMTools:
                 }
             }
             },
-
             {
-                "type": "function",
-                "function": {
-                    "name": "create_task",
-                    "description": "Creates a new task in the CRM and optionally links it to a person, company, or opportunity.",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "title": {
-                                "type": "string",
-                                "description": "The title of the task."
-                            },
-                            "body": {
-                                "type": "string",
-                                "description": "The main content or description of the task."
-                            },
-                            "status": {
-                                "type": "string",
-                                "enum": ["TODO", "IN_PROGRESS", "DONE"],
-                                "description": "The current status of the task."
-                            },
-                            "due_at": {
-                                "type": "string",
-                                "format": "date-time",
-                                "description": "Optional ISO 8601 timestamp representing when the task is due."
-                            },
-                            "assignee_id": {
-                                "type": "string",
-                                "description": "Optional UUID of the user who is assigned to this task."
-                            },
-                            "person_id": {
-                                "type": "string",
-                                "description": "Optional UUID of the person to link this task to."
-                            },
-                            "company_id": {
-                                "type": "string",
-                                "description": "Optional UUID of the company to link this task to."
-                            },
-                            "opportunity_id": {
-                                "type": "string",
-                                "description": "Optional UUID of the opportunity to link this task to."
-                            },
-                            "position": {
-                                "type": "integer",
-                                "description": "Optional position for the task record (defaults to 1)."
-                            }
-                        },
-                        "required": ["title", "body"]
+            "type": "function",
+            "function": {
+                "name": "create_task",
+                "description": "Creates a new task in the CRM with a summary and recommended action, and optionally links it to a person or opportunity.",
+                "parameters": {
+                "type": "object",
+                "properties": {
+                    "title": {
+                    "type": "string",
+                    "description": "A concise, action-oriented title describing the next step."
+                    },
+                    "opportunity_summary": {
+                    "type": "string",
+                    "description": "Concise summary of available information about the opportunity, including the most recent update."
+                    },
+                    "recommendation": {
+                    "type": "string",
+                    "description": "Specific recommendation for the next action based on current opportunity stage and context."
+                    },
+                    "due_at": {
+                    "type": "string",
+                    "format": "date-time",
+                    "description": "Optional ISO 8601 timestamp for when the task is due. Defaults to 24 hours from now if not provided."
+                    },
+                    "assignee_id": {
+                    "type": "string",
+                    "description": "Optional UUID of the user assigned to this task."
+                    },
+                    "person_id": {
+                    "type": "string",
+                    "description": "Optional UUID of the person to link this task to (typically the email sender)."
+                    },
+                    "opportunity_id": {
+                    "type": "string",
+                    "description": "Optional UUID of the opportunity to link this task to."
+                    },
+                    "position": {
+                    "type": "integer",
+                    "description": "Optional position value used to sort or order the task. Defaults to 1."
                     }
+                },
+                "required": ["title", "opportunity_summary", "recommendation"]
                 }
+            }
             },
 
             # MS GRAPH

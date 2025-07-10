@@ -210,7 +210,7 @@ class TwentyCRMAPI:
         Args:
             email_subject (str): Subject of the email. Used as note title (required).
             email_body (str): Raw body of the email (required).
-            crm_update (str): Optional summary of CRM update to include in the note body.
+            crm_update (str): Summary of CRM update to include in the note body.
             person_id (str): Optional UUID of the person to link the note to.
             company_id (str): Optional UUID of the company to link the note to.
             opportunity_id (str): Optional UUID of the opportunity to link the note to.
@@ -293,103 +293,112 @@ class TwentyCRMAPI:
             self.logger.error(f"Error creating note or linking it: {e}", exc_info=True)
             raise
 
-    def create_task(self, title: str, body: str, status: str = "TODO", due_at: str = None,
-                    assignee_id: str = None, person_id: str = None,
-                    company_id: str = None, opportunity_id: str = None,
-                    position: int = 1):
-        def build_paragraph(text: str, bold: bool = False) -> dict:
-            return {
-                "id": str(abs(hash(text)))[:8],
-                "type": "paragraph",
-                "props": {
-                    "textColor": "default",
-                    "backgroundColor": "default",
-                    "textAlignment": "left"
-                },
-                "content": [{
-                    "type": "text",
-                    "text": text.strip(),
-                    "styles": {"bold": bold} if bold else {}
-                }]
+def create_task(self, title: str, opportunity_summary: str, recommendation: str,
+                due_at: str = None, assignee_id: str = None,
+                person_id: str = None, opportunity_id: str = None, position: int = 1):
+    """
+    Creates a structured task for an opportunity with a summary and next-step recommendation.
+
+    Formats the task body into:
+        "Opportunity summary:" <summary>
+        "Action recommended:" <recommendation>
+
+    Links the task to the relevant person and opportunity records.
+
+    Args:
+        title (str): Concise, action-focused title of the task (required).
+        opportunity_summary (str): Summary of the opportunity and current status (required).
+        recommendation (str): Recommended action based on available information (required).
+        due_at (str): Optional ISO 8601 UTC datetime string. Defaults to tomorrow if not set.
+        assignee_id (str): Optional UUID of the user to assign the task to.
+        person_id (str): UUID of the person to link the task to.
+        opportunity_id (str): UUID of the opportunity to link the task to.
+        position (int): Sort position for task ordering. Defaults to 1.
+
+    Returns:
+        dict: The created task object from the CRM.
+    """
+    def build_paragraph(text: str, bold: bool = False) -> dict:
+        return {
+            "id": str(abs(hash(text)))[:8],
+            "type": "paragraph",
+            "props": {
+                "textColor": "default",
+                "backgroundColor": "default",
+                "textAlignment": "left"
+            },
+            "content": [{
+                "type": "text",
+                "text": text.strip(),
+                "styles": {"bold": bold} if bold else {}
+            }]
+        }
+
+    try:
+        if not title:
+            raise ValueError("Task title is required.")
+        if not opportunity_summary:
+            raise ValueError("Opportunity summary is required.")
+        if not recommendation:
+            raise ValueError("Recommendation is required.")
+
+        self.logger.info(f"Creating task with title: '{title}'")
+
+        # Format plain text body
+        body = f"Opportunity summary:\n{opportunity_summary.strip()}\n\nAction recommended:\n{recommendation.strip()}"
+
+        # Build blocknote body
+        blocknote = [
+            build_paragraph("Opportunity summary:", bold=True),
+            build_paragraph(opportunity_summary),
+            build_paragraph("Action recommended:", bold=True),
+            build_paragraph(recommendation)
+        ]
+
+        task_payload = {
+            "title": title,
+            "position": position,
+            "bodyV2": {
+                "markdown": body,
+                "blocknote": json.dumps(blocknote)
             }
+        }
 
-        def extract_sections(body: str) -> tuple[str, str]:
-            pattern = re.compile(r"Original Email:\s*(.*?)\s*Recommendation:\s*(.*)", re.IGNORECASE | re.DOTALL)
-            match = pattern.search(body)
-            if match:
-                return match.group(1).strip(), match.group(2).strip()
-            else:
-                return "", body.strip()
+        if due_at:
+            task_payload["dueAt"] = due_at
+        else:
+            task_payload["dueAt"] = (datetime.utcnow().replace(microsecond=0).isoformat() + "Z")
 
-        try:
-            self.logger.info(f"Creating task with title: '{title}'")
+        if assignee_id:
+            task_payload["assigneeId"] = assignee_id
 
-            original_email, recommendation = extract_sections(body)
-            blocknote = []
+        response = self._make_request("POST", "tasks", json_data=task_payload)
+        task = response.get("data", {}).get("createTask")
 
-            if original_email:
-                blocknote.extend([
-                    build_paragraph("Original Email:", bold=True),
-                    build_paragraph(original_email),
-                ])
-            if recommendation:
-                blocknote.extend([
-                    build_paragraph("Recommendation:", bold=True),
-                    build_paragraph(recommendation),
-                ])
-            if not blocknote:
-                blocknote.extend([
-                    build_paragraph("Message:", bold=True),
-                    build_paragraph(body)
-                ])
+        if not task or "id" not in task:
+            raise ValueError(f"Failed to create task: {json.dumps(response)}")
 
-            task_payload = {
-                "title": title,
-                "status": status,
-                "position": position,
-                "bodyV2": {
-                    "markdown": body,
-                    "blocknote": json.dumps(blocknote)
-                }
-            }
+        task_id = task["id"]
+        self.logger.info(f"Task created with ID: {task_id}")
 
-            if due_at:
-                task_payload["dueAt"] = due_at
-            else:
-                # Default due date: tomorrow
-                task_payload["dueAt"] = (datetime.utcnow().replace(microsecond=0).isoformat() + "Z")
+        # Link to person and opportunity
+        targets = {
+            "personId": person_id,
+            "opportunityId": opportunity_id
+        }
+        linked = []
+        for key, val in targets.items():
+            if val:
+                self._make_request("POST", "taskTargets", json_data={"taskId": task_id, key: val})
+                linked.append(f"{key}={val}")
 
-            if assignee_id:
-                task_payload["assigneeId"] = assignee_id
+        if linked:
+            self.logger.info(f"Task linked to: {', '.join(linked)}")
+        else:
+            self.logger.info("Task not linked to any person or opportunity.")
 
-            response = self._make_request("POST", "tasks", json_data=task_payload)
-            task = response.get("data", {}).get("createTask")
+        return task
 
-            if not task or "id" not in task:
-                raise ValueError(f"Failed to create task: {json.dumps(response)}")
-
-            task_id = task["id"]
-            self.logger.info(f"Task created with ID: {task_id}")
-
-            # Link to related records (via taskTargets)
-            targets = {
-                "personId": person_id,
-                "companyId": company_id,
-                "opportunityId": opportunity_id
-            }
-            linked = []
-            for key, val in targets.items():
-                if val:
-                    self._make_request("POST", "taskTargets", json_data={"taskId": task_id, key: val})
-                    linked.append(f"{key}={val}")
-
-            if linked:
-                self.logger.info(f"Task linked to: {', '.join(linked)}")
-            else:
-                self.logger.info("Task not linked to any person/company/opportunity.")
-
-            return task
-
-        except Exception as e:
-            self.logger.error(f"Error creating task or linking it: {e}", exc_info=True)
-            raise
+    except Exception as e:
+        self.logger.error(f"Error creating task or linking it: {e}", exc_info=True)
+        raise

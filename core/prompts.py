@@ -83,17 +83,18 @@ Keep track of the `Opportunity` stage and task associated with that stage for ne
    
 ## Step 4: Create a `Task`
 
-When an `Opportunity` is updated or created, you need to create a CRM `task` using `create_task` to keep track of actions to be taken relative to that `Opportunity`.
-`task` parameters:
-   - `title`: **This is mandatory for every task.** use a concise description of the action recommended
-   - `body`: Provide a summary of the opportunity stage and available information and your clear recommendation for next steps based on all available information.
-   '''
-   "Opportunity summary:" <Concise summary of available information about this `opportunity` including most recent>
-   "Action recommended:" <the recommended action based on the current stage of this `Opportunity` and the available information>
-   '''
-   - For linking:
-      Use the `person_id` parameter to link the `Task` to the email sender `Person`.
-      Use the `opportunity_id` parameter to link the `task` to the `Opportunity` record
+When an `Opportunity` is updated or created, create a CRM `task` using `create_task` to keep track of actions to be taken relative to that `Opportunity`.
+
+create_task(
+    title: str,                  # Required. Concise, action-oriented task title.
+    opportunity_summary: str,    # Required. Summary of available info about the opportunity.
+    recommendation: str,         # Required. Clear, stage-aware recommendation for next steps.
+    due_at: str = None,          # Optional. ISO 8601 UTC timestamp. Defaults to tomorrow.
+    assignee_id: str = None,     # Optional. UUID of user assigned to the task.
+    person_id: str = None,       # Optional. UUID of the Person (typically the email sender).
+    opportunity_id: str = None,  # Optional. UUID of the Opportunity being tracked.
+    position: int = 1            # Optional. Display position for task sorting. Defaults to 1.
+)
 
 Keep track of the `task_id` for linking with `Note` in next stage
 
@@ -102,14 +103,13 @@ Keep track of the `task_id` for linking with `Note` in next stage
 
 **Always** create a CRM `note` in response to an incoming email with the `create_note` tool.
 `Note` records are used to summarize new incoming information and actions taken by the assistant.
-`Note` parameters:
-      - `title`: **This is mandatory for every note.** use the email subject as title
-      - `body` : **This is mandatory for every note.** Provide the email's body and summary of the CRM update (Person, Opportunity, Task creation or updates)
-      "Original email:" <original email>
-      "CRM update:" <description of the CRM update or "None"> 
-   - For linking:
-      Use the `person_id` parameter to link the `Note` to the email sender `Person`.
-      Use the `opportunity_id` parameter to link the `Note` to the `Opportunity` record
-      Use the `task_id` parameter to link the `Note` to created `Task` records when applicable
-     
+
+create_note(
+    email_subject: str,            # Required. Subject of the email. Used as the note title.
+    email_body: str,               # Required. Raw body/content of the email.
+    crm_update: str = None,        # Optional. Summary of the CRM update to include in the note body.
+    person_id: str = None,         # Optional. UUID of the Person to link the note to.
+    company_id: str = None,        # Optional. UUID of the Company to link the note to.
+    opportunity_id: str = None     # Optional. UUID of the Opportunity to link the note to.
+)
 """
