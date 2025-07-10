@@ -147,20 +147,40 @@ class TwentyCRMAPI:
     def update_opportunity(self, opportunity_id: str, stage: str) -> dict | None:
         """
         Update the stage of an existing opportunity. If stage is 'invoicePaid',
-        also set the close date to the current timestamp.
+        also set the close date to the current timestamp. If the stage is already
+        set to the desired value, no update is performed.
 
         Args:
             opportunity_id (str): UUID of the opportunity to update.
             stage (str): New stage value.
 
         Returns:
-            dict | None: Updated opportunity object or None on failure.
+            dict | None: Updated opportunity object or a message indicating no update was needed.
         """
         if not opportunity_id:
             raise ValueError("Opportunity ID is required.")
         if not stage:
             raise ValueError("Stage is required.")
 
+        # Step 1: Fetch current opportunity data
+        try:
+            current_opportunity = self._make_request("GET", f"opportunities/{opportunity_id}")
+            current_stage = current_opportunity.get("data", {}).get("stage")
+
+            if current_stage == stage:
+                self.logger.info(f"Opportunity {opportunity_id} already at stage '{stage}', skipping update.")
+                return {
+                    "stage": stage,
+                    "updated": False,
+                    "message": f"Opportunity already at stage '{stage}', no update needed.",
+                    "id": opportunity_id
+                }
+
+        except requests.exceptions.RequestException as e:
+            self.logger.warning(f"Failed to fetch current opportunity stage: {e}")
+            return None
+
+        # Step 2: Proceed with update if needed
         endpoint = f"opportunities/{opportunity_id}"
         json_data = {"stage": stage}
 
@@ -170,7 +190,12 @@ class TwentyCRMAPI:
         try:
             self.logger.info(f"Updating opportunity {opportunity_id} stage to '{stage}'")
             data = self._make_request("PATCH", endpoint, json_data=json_data)
-            return data.get("data", {}).get("updateOpportunity")
+            updated = data.get("data", {}).get("updateOpportunity")
+            return {
+                **(updated or {}),
+                "updated": True,
+                "message": f"Opportunity stage updated to '{stage}'."
+            }
         except requests.exceptions.HTTPError:
             raise
         except requests.exceptions.RequestException as e:
