@@ -37,13 +37,12 @@ class EmailProcessingAgent:
         self.model = model
         self.crm_tools = CRMTools(twenty_crm_client, ms_graph_client)
 
-    # Helper method for making LLM calls with retries
-    def _call_llm_with_retries(self, messages, tools, tool_choice, max_retries=5, initial_delay=1.0):
+    def _call_llm_with_retries(self, messages, tools, tool_choice, max_retries=8, initial_delay=2.0, max_delay=60.0):
         """
         Calls the LLM with exponential backoff and jitter for rate limit errors.
         """
         delay = initial_delay
-        last_rate_limit_error = None # Variable to store the last caught RateLimitError
+        last_rate_limit_error = None
 
         for i in range(max_retries):
             try:
@@ -54,35 +53,24 @@ class EmailProcessingAgent:
                     tool_choice=tool_choice
                 )
                 return response
+
             except RateLimitError as e:
-                # This is the specific exception for 429 errors from openai-python client
-                last_rate_limit_error = e # Store the current RateLimitError
-                # Calculate jitter proportional to the current delay
-                jitter = random.uniform(0, 0.5 * delay)
-                total_sleep_time = delay + jitter
-                logger.warning(f"Rate limit hit (attempt {i+1}/{max_retries}). Retrying in {total_sleep_time:.2f} seconds...")
-                time.sleep(total_sleep_time)
-                delay *= 2 # Exponential increase
-                # Optional: Cap the maximum delay to prevent excessively long waits
-                # if delay > 60: # e.g., cap at 60 seconds
-                #     delay = 60
+                last_rate_limit_error = e
+                jitter = random.uniform(0, delay)
+                sleep_time = min(max_delay, jitter)
+                logger.warning(f"[{i+1}/{max_retries}] Rate limit hit. Sleeping for {sleep_time:.2f} seconds before retry...")
+                time.sleep(sleep_time)
+                # Increase delay for next round
+                delay = min(delay * 2, max_delay)
+
             except Exception as e:
-                # Catch other general exceptions during the API call
-                logger.exception(f"An unexpected error occurred during LLM call:") # Use logger.exception to print traceback
-                raise # Re-raise if it's not a rate limit error
+                logger.exception("Unexpected error during LLM call:")
+                raise
 
         logger.error(f"Failed to get LLM response after {max_retries} retries due to rate limits.")
-        # If we reach here, it means all retries failed.
-        # Re-raise the last RateLimitError encountered to preserve its details.
         if last_rate_limit_error:
             raise last_rate_limit_error
-        else:
-            # This case should ideally not be hit if the loop exits because of RateLimitError,
-            # but as a fallback, raise a general APIStatusError with dummy values
-            # or a custom exception if APIStatusError cannot be constructed without real data.
-            # For simplicity, if we hit this, it means no RateLimitError was ever stored
-            # (which implies a different failure mode or a logic error), so a general Exception is safer.
-            raise Exception("LLM call failed after retries, no specific RateLimitError captured.")
+        raise Exception("LLM call failed after retries, no RateLimitError captured.")
 
 
     def process_email(self, email_data):
