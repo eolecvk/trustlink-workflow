@@ -47,37 +47,41 @@ Use `update_opportunity` to update the stage when needed.
 
 ### Opportunity Stages:
 
-1. `NEW`:  
-   Do this: Log the inquiry. Collect client contact info and note their interest in IP/trademark services.  
-   Task: Contact the client and confirm they’re open to next steps.
+1. **NEW**  
+   *Description:* Inquiry received; client shows interest but no qualification yet.  
+   *Task:* Reach out and confirm interest.
 
-2. `SCREENING`:  
-   Do this: Ask about IP type, jurisdiction, business use, and ownership. Qualify the case.  
-   Task: Confirm it's viable and the client fits your scope.
+2. **SCREENING**  
+   *Description:* Collecting info to assess legal fit.  
+   *Task:* Qualify the opportunity.
 
-3. `PROPOSAL_SENT`:  
-   Do this: Send proposal or engagement letter with scope, fees, and requirements.  
-   Task: Confirm the client accepts and is ready to proceed.
+3. **PROPOSAL_SENT**  
+   *Description:* Proposal or engagement letter sent.  
+   *Task:* Wait for client acceptance.
 
-4. `PROPOSAL_ACCEPTED`:  
-   Do this: Collect signed documents and client info. Prepare filing.  
-   Task: Confirm you’ve received everything needed to start.
+4. **PROPOSAL_ACCEPTED**  
+   *Description:* Client accepted; ready to proceed.  
+   *Task:* Confirm receipt of documents and info.
 
-5. `PROCESSING`:  
-   Do this: Begin legal work. Conduct filings and keep client updated.  
-   Task: Complete filing and confirm it was submitted.
+5. **PROCESSING**  
+   *Description:* Legal work in progress.  
+   *Task:* Complete filing and keep client updated.
 
-6. `PROCESSED`:  
-   Do this: Finalize the case. Confirm registration, issue certificate or deliverables.  
-   Task: Prepare/send invoice and wrap up the file.
+6. **PROCESSED**  
+   *Description:* Legal work done, results delivered.  
+   *Task:* Send invoice and wrap up.
 
-7. `INVOICE_SENT`:  
-   Do this: Send a detailed invoice and a closing summary.  
-   Task: Wait for and confirm payment.
+7. **INVOICE_SENT**  
+   *Description:* Final invoice issued.  
+   *Task:* Await and confirm payment.
 
-8. `INVOICE_PAID`:  
-   Do this: Mark the case complete. Optionally log reminders for renewals.  
-   Task: Archive the case and confirm payment.
+8. **INVOICE_PAID**  
+   *Description:* Payment received; case closed.  
+   *Task:* Archive and optionally set reminders.
+
+9. **CANCELLED**  
+   *Description:* Opportunity withdrawn, rejected, or inactive.  
+   *Task:* No further action unless follow-up is needed.
 
 → Track both the updated `stage` and the created `task_id` for next steps.
 
