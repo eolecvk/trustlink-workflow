@@ -140,39 +140,43 @@ class CRMTools:
                     }
                 }
             },
-                {
-                    "type": "function",
-                    "function": {
-                        "name": "create_note",
-                        "description": "Creates a new note record in the CRM. The note summarizes an email and optionally a CRM update. It can be linked to a person, company, or opportunity.",
-                        "parameters": {
-                            "type": "object",
-                            "properties": {
-                                "title": {
-                                    "type": "string",
-                                    "description": "The title of the note, typically set from the email subject."
-                                },
-                                "body": {
-                                    "type": "string",
-                                    "description": "The content of the note, formatted as:\n'Original email: <email body>'\n'CRM update: <summary or None>'"
-                                },
-                                "person_id": {
-                                    "type": "string",
-                                    "description": "Optional: The ID of the person to associate the note with (UUID format)."
-                                },
-                                "company_id": {
-                                    "type": "string",
-                                    "description": "Optional: The ID of the company to associate the note with (UUID format)."
-                                },
-                                "opportunity_id": {
-                                    "type": "string",
-                                    "description": "Optional: The ID of the opportunity to associate the note with (UUID format)."
-                                }
-                            },
-                            "required": ["title", "body"]
-                        }
+            {
+            "type": "function",
+            "function": {
+                "name": "create_note",
+                "description": "Creates a formatted note from an email and optional CRM update, and links it to CRM records.",
+                "parameters": {
+                "type": "object",
+                "properties": {
+                    "email_subject": {
+                    "type": "string",
+                    "description": "Subject of the email. Used as the note title (required)."
+                    },
+                    "email_body": {
+                    "type": "string",
+                    "description": "Raw body of the email (required)."
+                    },
+                    "crm_update": {
+                    "type": "string",
+                    "description": "Optional summary of the CRM update to include in the note body."
+                    },
+                    "person_id": {
+                    "type": "string",
+                    "description": "Optional UUID of the person to link the note to."
+                    },
+                    "company_id": {
+                    "type": "string",
+                    "description": "Optional UUID of the company to link the note to."
+                    },
+                    "opportunity_id": {
+                    "type": "string",
+                    "description": "Optional UUID of the opportunity to link the note to."
                     }
                 },
+                "required": ["email_subject", "email_body"]
+                }
+            }
+            },
             {
             "type": "function",
             "function": {

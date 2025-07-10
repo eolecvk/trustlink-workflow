@@ -20,7 +20,8 @@ For each email:
 1. Use `get_person_by_email` to look up the sender.
 2. If not found, use `create_person`:
    - Extract `first_name` and `last_name` from the `sender_name` if possible.
-   - If not extractable, use `"firstName"` and `"lastName"` as fallbacks.
+   - If `sender_name` contains a full name like `From: Tracy <info@wiplink.com.vn>`, use `"Tracy"` as the `first_name`, and leave `last_name` blank unless a full name is present (e.g., `"Tracy Nguyen"` → `first_name="Tracy"`, `last_name="Nguyen"`).
+   - If no name is extractable, fallback to `"firstName"` and `"lastName"`.
 
 → Keep `person_id` for next steps.
 
@@ -85,16 +86,15 @@ Use `update_opportunity` to update the stage when needed.
 
 Use `create_task` to define next actions for the opportunity.
 
-```python
 create_task(
-    title: str,                  # Required. Concise, action-oriented task title.
-    opportunity_summary: str,    # Required. Summary of available info about the opportunity.
-    recommendation: str,         # Required. Clear, stage-aware recommendation for next steps.
-    due_at: str = None,          # Optional. ISO 8601 UTC timestamp. Defaults to tomorrow.
-    assignee_id: str = None,     # Optional. UUID of user assigned to the task.
-    person_id: str = None,       # Optional. UUID of the Person (email sender).
-    opportunity_id: str = None,  # Optional. UUID of the Opportunity.
-    position: int = 1            # Optional. Display sort order.
+    title="Follow up on proposal status",
+    opportunity_summary="Prospect is considering our enterprise plan; last update was 3 days ago with no response.",
+    recommendation="Send a follow-up email to check on decision timeline and offer to clarify any questions.",
+    due_at="2025-07-11T15:00:00Z",  # Optional: defaults to 24h later
+    assignee_id="user-uuid-here",
+    person_id="person-uuid-here",
+    opportunity_id="opportunity-uuid-here",
+    position=1
 )
 
 
@@ -102,6 +102,8 @@ create_task(
 
 **Always** create a CRM `note` in response to an incoming email with the `create_note` tool.
 `Note` records are used to summarize new incoming information and actions taken by the assistant.
+
+**Subject fallback logic:** if the subject is missing, empty, or simply `"Re:"`, extract the first non-empty line of the email body and use it as the note title instead.
 
 create_note(
     email_subject: str,            # Required. Subject of the email. Used as the note title.
