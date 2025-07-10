@@ -37,7 +37,8 @@ class EmailProcessingAgent:
         self.model = model
         self.crm_tools = CRMTools(twenty_crm_client, ms_graph_client)
 
-    def _call_llm_with_retries(self, messages, tools, tool_choice, max_retries=8, initial_delay=2.0, max_delay=60.0):
+    # Helper method for making LLM calls with retries
+    def _call_llm_with_retries(self, messages, tools, tool_choice, max_retries=10, initial_delay=6.0, max_delay=60.0):
         """
         Calls the LLM with exponential backoff and jitter for rate limit errors.
         """
