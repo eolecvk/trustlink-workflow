@@ -71,18 +71,24 @@ class TwentyCRMAPI:
 
     def create_person(self, first_name: str, last_name: str, email: str) -> dict | None:
         endpoint = "people"
+
+        # Replace missing names with placeholders
+        safe_first_name = first_name or "Unknown"
+        safe_last_name = last_name or "Unknown"
+
         json_data = {
             "emails": {
                 "primaryEmail": email,
                 "additionalEmails": []
             },
             "name": {
-                "firstName": first_name,
-                "lastName": last_name
+                "firstName": safe_first_name,
+                "lastName": safe_last_name
             }
         }
 
         try:
+            self.logger.debug(f"Creating person: {safe_first_name=}, {safe_last_name=}, {email=}")
             data = self._make_request("POST", endpoint, json_data=json_data)
             return data.get("data", {}).get("createPerson")
         except requests.exceptions.HTTPError:
