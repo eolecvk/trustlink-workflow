@@ -45,7 +45,10 @@ class MSGraphClient:
         }
         try:
             response = requests.get(
-                "https://graph.microsoft.com/v1.0/me/mailfolders/inbox/messages?$filter=isRead eq false&$select=id,subject,body,sender",
+                "https://graph.microsoft.com/v1.0/me/mailfolders/inbox/messages"
+                "?$filter=isRead eq false"
+                "&$orderby=receivedDateTime asc"
+                "&$select=id,subject,body,sender,receivedDateTime",
                 headers=headers
             )
             response.raise_for_status()
