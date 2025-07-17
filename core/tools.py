@@ -257,23 +257,23 @@ class CRMTools:
                     }
                 }
             },
-            {
-                "type": "function",
-                "function": {
-                    "name": "mark_email_as_read",
-                    "description": "Marks a specific email as read.",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "email_id": {
-                                "type": "string",
-                                "description": "The unique identifier of the email to mark as read."
-                            }
-                        },
-                        "required": ["email_id"]
-                    }
-                }
-            }
+            # {
+            #     "type": "function",
+            #     "function": {
+            #         "name": "mark_email_as_read",
+            #         "description": "Marks a specific email as read.",
+            #         "parameters": {
+            #             "type": "object",
+            #             "properties": {
+            #                 "email_id": {
+            #                     "type": "string",
+            #                     "description": "The unique identifier of the email to mark as read."
+            #                 }
+            #             },
+            #             "required": ["email_id"]
+            #         }
+            #     }
+            # }
         ]
 
     def call_tool(self, tool_name: str, **kwargs):
